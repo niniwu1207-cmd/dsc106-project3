@@ -1,0 +1,130 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Global Warming by Latitude</title>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f7f9fc;
+      text-align: center;
+      padding: 30px;
+    }
+    svg {
+      background: white;
+      border-radius: 12px;
+      max-width: 100%;
+    }
+    .tooltip {
+      position: absolute;
+      background: #253047;
+      color: white;
+      padding: 10px;
+      border-radius: 6px;
+      pointer-events: none;
+      opacity: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>How Has Global Warming Varied by Latitude?</h1>
+  <p>Temperature change: 1850–1879 vs. 1985–2014</p>
+
+  <svg id="chart" width="850" height="480"></svg>
+  <div class="tooltip"></div>
+
+  <script>
+    const svg = d3.select("#chart");
+    const margin = {top: 35, right: 45, bottom: 65, left: 75};
+    const width = 850 - margin.left - margin.right;
+    const height = 480 - margin.top - margin.bottom;
+
+    const g = svg.append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    const tooltip = d3.select(".tooltip");
+
+    d3.csv("temperature_by_latitude.csv", d => ({
+      latitude: +d.latitude,
+      change: +d.temperature_change
+    })).then(data => {
+      data.sort((a, b) => a.latitude - b.latitude);
+
+      const x = d3.scaleLinear()
+        .domain([-90, 90])
+        .range([0, width]);
+
+      const y = d3.scaleLinear()
+        .domain([
+          Math.min(0, d3.min(data, d => d.change)),
+          d3.max(data, d => d.change) * 1.1
+        ])
+        .nice()
+        .range([height, 0]);
+
+      g.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+
+      g.append("g")
+        .call(d3.axisLeft(y));
+
+      g.append("text")
+        .attr("x", width / 2)
+        .attr("y", height + 48)
+        .attr("text-anchor", "middle")
+        .text("Latitude (°)");
+
+      g.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -52)
+        .attr("text-anchor", "middle")
+        .text("Temperature Change (°C)");
+
+      const line = d3.line()
+        .x(d => x(d.latitude))
+        .y(d => y(d.change));
+
+      g.append("path")
+        .datum(data)
+        .attr("fill", "none")
+        .attr("stroke", "#4682b4")
+        .attr("stroke-width", 3)
+        .attr("d", line);
+
+      g.selectAll(".point")
+        .data(data)
+        .enter()
+        .append("circle")
+        .attr("cx", d => x(d.latitude))
+        .attr("cy", d => y(d.change))
+        .attr("r", 5)
+        .attr("fill", "#4682b4")
+        .attr("opacity", 0)
+        .on("mouseover", function(event, d) {
+          d3.select(this).attr("opacity", 1);
+          tooltip.style("opacity", 1)
+            .html(`Latitude: ${d.latitude.toFixed(1)}°<br>
+                   Warming: ${d.change.toFixed(2)}°C`);
+        })
+        .on("mousemove", function(event) {
+          tooltip
+            .style("left", (event.pageX + 12) + "px")
+            .style("top", (event.pageY - 25) + "px");
+        })
+        .on("mouseout", function() {
+          d3.select(this).attr("opacity", 0);
+          tooltip.style("opacity", 0);
+        });
+    }).catch(error => {
+      console.error(error);
+      d3.select("body").append("p")
+        .text("Could not load CSV. Check the filename and local server.");
+    });
+  </script>
+</body>
+</html>

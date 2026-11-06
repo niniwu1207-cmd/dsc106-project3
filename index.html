@@ -3,8 +3,8 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Global Warming by Latitude</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Global Warming Across Latitudes and Time</title>
   <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
   <style>
     body {
@@ -12,12 +12,34 @@
       background: #f7f9fc;
       text-align: center;
       padding: 30px;
+      color: #202938;
     }
+
+    h1 { margin-bottom: 10px; }
+
+    .controls {
+      margin: 25px auto;
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      flex-wrap: wrap;
+    }
+
+    select {
+      padding: 9px 14px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      font-size: 15px;
+      background: white;
+    }
+
     svg {
       background: white;
       border-radius: 12px;
       max-width: 100%;
+      height: auto;
     }
+
     .tooltip {
       position: absolute;
       background: #253047;
@@ -26,41 +48,105 @@
       border-radius: 6px;
       pointer-events: none;
       opacity: 0;
+      text-align: left;
+      font-size: 14px;
+    }
+
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 25px;
+      margin-top: 15px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .swatch {
+      width: 20px;
+      height: 4px;
+      display: inline-block;
     }
   </style>
 </head>
 <body>
-  <h1>How Has Global Warming Varied by Latitude?</h1>
-  <p>Temperature change: 1850–1879 vs. 1985–2014</p>
+  <h1>How Do Warming Patterns Vary Across Latitudes and Over Time?</h1>
+  <p>Temperature change relative to 1850–1879</p>
 
-  <svg id="chart" width="850" height="480"></svg>
+  <div class="controls">
+    <label>
+      First Decade:
+      <select id="decade1"></select>
+    </label>
+
+    <label>
+      Second Decade:
+      <select id="decade2"></select>
+    </label>
+  </div>
+
+  <svg id="chart" viewBox="0 0 900 500"></svg>
+  <div class="legend" id="legend"></div>
   <div class="tooltip"></div>
+
+  <p style="font-size:13px;color:#64748b">
+    Source: NASA-GISS CMIP6 historical simulation.
+    2010–2014 is a partial decade.
+  </p>
 
   <script>
     const svg = d3.select("#chart");
-    const margin = {top: 35, right: 45, bottom: 65, left: 75};
-    const width = 850 - margin.left - margin.right;
-    const height = 480 - margin.top - margin.bottom;
+    const tooltip = d3.select(".tooltip");
+
+    const margin = {top: 35, right: 45, bottom: 65, left: 85};
+    const width = 900 - margin.left - margin.right;
+    const height = 500 - margin.top - margin.bottom;
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const tooltip = d3.select(".tooltip");
+    const colors = ["#4682b4", "#e87576"];
 
-    d3.csv("temperature_by_latitude.csv", d => ({
+    d3.csv("warming_by_decade.csv", d => ({
+      decade: d.decade,
       latitude: +d.latitude,
-      change: +d.temperature_change
+      warming: +d.warming
     })).then(data => {
-      data.sort((a, b) => a.latitude - b.latitude);
+
+      data = data.filter(d =>
+        Number.isFinite(d.latitude) &&
+        Number.isFinite(d.warming)
+      );
+
+      const decades = [...new Set(data.map(d => d.decade))].sort();
+
+      const select1 = d3.select("#decade1");
+      const select2 = d3.select("#decade2");
+
+      [select1, select2].forEach(select => {
+        select.selectAll("option")
+          .data(decades)
+          .enter()
+          .append("option")
+          .attr("value", d => d)
+          .text(d => d);
+      });
+
+      select1.property("value", "1950-1959");
+      select2.property("value", "2000-2009");
 
       const x = d3.scaleLinear()
         .domain([-90, 90])
         .range([0, width]);
 
+      const yExtent = d3.extent(data, d => d.warming);
       const y = d3.scaleLinear()
         .domain([
-          Math.min(0, d3.min(data, d => d.change)),
-          d3.max(data, d => d.change) * 1.1
+          Math.min(0, yExtent[0]),
+          Math.max(0, yExtent[1])
         ])
         .nice()
         .range([height, 0]);
@@ -81,49 +167,101 @@
       g.append("text")
         .attr("transform", "rotate(-90)")
         .attr("x", -height / 2)
-        .attr("y", -52)
+        .attr("y", -60)
         .attr("text-anchor", "middle")
         .text("Temperature Change (°C)");
 
+      g.append("line")
+        .attr("x1", 0)
+        .attr("x2", width)
+        .attr("y1", y(0))
+        .attr("y2", y(0))
+        .attr("stroke", "#94a3b8")
+        .attr("stroke-dasharray", "5,5");
+
       const line = d3.line()
         .x(d => x(d.latitude))
-        .y(d => y(d.change));
+        .y(d => y(d.warming));
 
-      g.append("path")
-        .datum(data)
-        .attr("fill", "none")
-        .attr("stroke", "#4682b4")
-        .attr("stroke-width", 3)
-        .attr("d", line);
+      const seriesLayer = g.append("g");
 
-      g.selectAll(".point")
-        .data(data)
-        .enter()
-        .append("circle")
-        .attr("cx", d => x(d.latitude))
-        .attr("cy", d => y(d.change))
-        .attr("r", 5)
-        .attr("fill", "#4682b4")
-        .attr("opacity", 0)
-        .on("mouseover", function(event, d) {
-          d3.select(this).attr("opacity", 1);
-          tooltip.style("opacity", 1)
-            .html(`Latitude: ${d.latitude.toFixed(1)}°<br>
-                   Warming: ${d.change.toFixed(2)}°C`);
-        })
-        .on("mousemove", function(event) {
-          tooltip
-            .style("left", (event.pageX + 12) + "px")
-            .style("top", (event.pageY - 25) + "px");
-        })
-        .on("mouseout", function() {
-          d3.select(this).attr("opacity", 0);
-          tooltip.style("opacity", 0);
+      function update() {
+        const selected = [
+          select1.property("value"),
+          select2.property("value")
+        ];
+
+        seriesLayer.selectAll("*").remove();
+        tooltip.style("opacity", 0);
+
+        selected.forEach((decade, index) => {
+          const subset = data
+            .filter(d => d.decade === decade)
+            .sort((a, b) => a.latitude - b.latitude);
+
+          seriesLayer.append("path")
+            .datum(subset)
+            .attr("fill", "none")
+            .attr("stroke", colors[index])
+            .attr("stroke-width", 3)
+            .attr("d", line);
+
+          seriesLayer.selectAll(`.point-${index}`)
+            .data(subset)
+            .enter()
+            .append("circle")
+            .attr("cx", d => x(d.latitude))
+            .attr("cy", d => y(d.warming))
+            .attr("r", 6)
+            .attr("fill", colors[index])
+            .attr("opacity", 0)
+            .style("pointer-events", "all")
+            .on("mouseover", function(event, d) {
+              d3.select(this).attr("opacity", 1);
+
+              tooltip
+                .style("opacity", 1)
+                .html(
+                  `Decade: ${d.decade}<br>` +
+                  `Latitude: ${d.latitude.toFixed(1)}°<br>` +
+                  `Warming: ${d.warming.toFixed(2)}°C`
+                );
+            })
+            .on("mousemove", function(event) {
+              tooltip
+                .style("left", (event.pageX + 12) + "px")
+                .style("top", (event.pageY - 25) + "px");
+            })
+            .on("mouseout", function() {
+              d3.select(this).attr("opacity", 0);
+              tooltip.style("opacity", 0);
+            });
         });
+
+        d3.select("#legend")
+          .selectAll(".legend-item")
+          .data(selected.map((decade, i) => ({
+            decade,
+            color: colors[i]
+          })))
+          .join("div")
+          .attr("class", "legend-item")
+          .html(d =>
+            `<span class="swatch" style="background:${d.color}"></span>` +
+            `<span>${d.decade}</span>`
+          );
+      }
+
+      select1.on("change", update);
+      select2.on("change", update);
+
+      update();
+
     }).catch(error => {
       console.error(error);
       d3.select("body").append("p")
-        .text("Could not load CSV. Check the filename and local server.");
+        .style("color", "red")
+        .text("Could not load warming_by_decade.csv. Check the filename and local server.");
     });
   </script>
 </body>

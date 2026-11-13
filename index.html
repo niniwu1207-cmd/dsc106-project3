@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,21 +16,11 @@
 
     h1 { margin-bottom: 10px; }
 
-    .controls {
-      margin: 25px auto;
-      display: flex;
-      justify-content: center;
-      gap: 25px;
-      flex-wrap: wrap;
-    }
+    .subtitle { max-width: 860px; margin: 0 auto 18px; line-height: 1.5; }
 
-    select {
-      padding: 9px 14px;
-      border: 1px solid #cbd5e1;
-      border-radius: 7px;
-      font-size: 15px;
-      background: white;
-    }
+    .comparing { font-size: 20px; font-weight: 700; margin: 0 0 12px; }
+    .blue { color: #4682b4; }
+    .red { color: #e05a5b; }
 
     svg {
       background: white;
@@ -50,64 +39,102 @@
       opacity: 0;
       text-align: left;
       font-size: 14px;
+      line-height: 1.45;
+      white-space: nowrap;
     }
 
     .legend {
       display: flex;
       justify-content: center;
-      gap: 25px;
+      gap: 22px;
       margin-top: 15px;
+      font-size: 14px;
+      flex-wrap: wrap;
     }
 
-    .legend-item {
+    .legend-item { display: flex; align-items: center; gap: 8px; }
+    .swatch { width: 22px; height: 4px; display: inline-block; }
+    .swatch.box { height: 12px; }
+
+    .panel {
+      max-width: 880px;
+      margin: 28px auto 12px;
       display: flex;
+      justify-content: center;
       align-items: center;
-      gap: 8px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
+    .panel p { margin: 0; font-size: 14px; color: #475569; text-align: left; max-width: 700px; line-height: 1.5; }
 
-    .swatch {
-      width: 20px;
-      height: 4px;
-      display: inline-block;
+    button {
+      padding: 9px 16px;
+      border: 1px solid #cbd5e1;
+      border-radius: 7px;
+      font-size: 15px;
+      background: white;
+      cursor: pointer;
+      white-space: nowrap;
     }
+    button:hover { background: #eef2f7; }
+
+    /* Heatmap brush: dashed box around the chosen time span */
+    #heatmap { user-select: none; touch-action: none; }
+    #heatmap .brush .selection { fill: #ffffff; fill-opacity: 0.08; stroke: #111827; stroke-width: 3; }
+    #heatmap .brush .handle { fill: #111827; fill-opacity: 0.85; }   /* dark bars on the top/bottom edges = drag to resize */
   </style>
 </head>
 <body>
   <h1>How Do Warming Patterns Vary Across Latitudes and Over Time?</h1>
-  <p>Temperature change relative to 1850–1879 (°C). Temperatures are averaged across longitudes and grouped by decade.</p>
-  <div class="controls">
-    <label>
-      First Decade:
-      <select id="decade1"></select>
-    </label>
+  <p class="subtitle">Temperature change relative to each latitude's 1850–1879 average (°C), from NASA-GISS's GISS-E2-1-G CMIP6 historical simulation. Temperatures are averaged across longitudes and grouped by decade.</p>
 
-    <label>
-      Second Decade:
-      <select id="decade2"></select>
-    </label>
+  <p class="comparing" id="comparing"></p>
+  <svg id="chart" viewBox="0 0 900 440" style="width:100%; max-width:1000px; height:auto; display:block; margin:auto;"></svg>
+  <div class="legend" id="legend"></div>
+  <p id="keyFinding" style="font-size:15px; font-weight:600; margin:16px auto 4px; max-width:850px;"></p>
+  <p id="arcticFinding" style="font-size:15px; margin:0 auto; max-width:850px;"></p>
+
+  <div class="panel">
+    <p><strong>Drag on the heatmap below to choose a time span.</strong> The top of the box is the starting decade
+       (<span class="blue">blue line</span>), the bottom is the ending decade (<span class="red">red line</span>).
+       Drag the box to slide it through time, or click a row to move the nearer end.</p>
+    <button id="play">▶ Play</button>
   </div>
+  <svg id="heatmap" style="width:100%; max-width:1000px; height:auto; display:block; margin:auto;"></svg>
+  <p style="font-size:13px; color:#475569; margin:8px auto 0;"><strong>Play</strong> keeps the starting decade and moves the ending decade forward to 2014, one decade at a time.</p>
+  <p id="sinceWhen" style="font-size:15px; margin:14px auto 0; max-width:850px;"></p>
 
-  <svg id="chart" viewBox="0 0 900 500" style="width:100%; max-width:1000px; height:auto; display:block; margin:auto;"></svg>  <div class="legend" id="legend"></div>
-  <p id="keyFinding" style="font-size:15px; font-weight:600; margin:18px auto; max-width:850px;"></p>
   <div class="tooltip"></div>
 
   <p style="font-size:13px;color:#64748b">
-    Source: NASA-GISS CMIP6 historical simulation.
-    2010–2014 is a partial decade.
+    Source: NASA-GISS CMIP6 historical simulation (GISS-E2-1-G, r1i1p1f1, monthly near-surface air temperature).
+    2010–2014 is a partial decade. Global and Arctic averages are area-weighted by cos(latitude).
   </p>
 
   <script>
     const svg = d3.select("#chart");
+    const hsvg = d3.select("#heatmap");
     const tooltip = d3.select(".tooltip");
 
-    const margin = {top: 35, right: 45, bottom: 65, left: 85};
+    const margin = {top: 35, right: 45, bottom: 60, left: 85};
     const width = 900 - margin.left - margin.right;
-    const height = 500 - margin.top - margin.bottom;
+    const height = 440 - margin.top - margin.bottom;
 
     const g = svg.append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
 
-    const colors = ["#4682b4", "#e87576"];
+    const BLUE = "#4682b4", RED = "#e87576";
+    const latFmt = l => `${Math.abs(l).toFixed(0)}°${l > 0 ? "N" : l < 0 ? "S" : ""}`;
+    const signed = v => `${v >= 0 ? "+" : ""}${v.toFixed(2)}°C`;
+    const pretty = dec => dec.replace("-", "–");
+
+    // Show the tooltip next to the cursor, flipping to the left side near the right edge
+    function showTooltip(event, html) {
+      tooltip.html(html).style("opacity", 1);
+      const w = tooltip.node().offsetWidth;
+      const left = event.pageX + 12 + w > window.innerWidth - 8 ? event.pageX - w - 12 : event.pageX + 12;
+      tooltip.style("left", left + "px").style("top", (event.pageY - 25) + "px");
+    }
 
     d3.csv("warming_by_decade.csv", d => ({
       decade: d.decade,
@@ -121,214 +148,388 @@
       );
 
       const decades = [...new Set(data.map(d => d.decade))].sort();
+      const n = decades.length;
+      const rowIndex = new Map(decades.map((d, i) => [d, i]));
+      const lats = [...new Set(data.map(d => d.latitude))].sort((a, b) => a - b);
+      const valueAt = (dec, lat) => lookup.get(`${dec}|${lat}`);
+      const lookup = new Map(data.map(d => [`${d.decade}|${d.latitude}`, d.warming]));
 
-      const select1 = d3.select("#decade1");
-      const select2 = d3.select("#decade2");
+      // Area-weighted averages: each latitude band weighted by cos(latitude)
+      const weight = lat => Math.cos(lat * Math.PI / 180);
+      const areaMean = (dec, keep = () => true) => {
+        const ls = lats.filter(keep);
+        return d3.sum(ls, l => valueAt(dec, l) * weight(l)) / d3.sum(ls, weight);
+      };
+      const stats = new Map(decades.map(dec => [dec, {
+        globe: areaMean(dec),
+        arctic: areaMean(dec, lat => lat >= 66.5)
+      }]));
 
-      [select1, select2].forEach(select => {
-        select.selectAll("option")
-          .data(decades)
-          .enter()
-          .append("option")
-          .attr("value", d => d)
-          .text(d => d);
-      });
+      // ---------- selection state: a time span [start, end] of decade indices ----------
+      let span = [rowIndex.get("1950-1959"), rowIndex.get("2000-2009")];
+      const startDec = () => decades[span[0]];
+      const endDec = () => decades[span[1]];
 
-      select1.property("value", "1950-1959");
-      select2.property("value", "2000-2009");
+      function normalize(s, e) {
+        if (e < s) [s, e] = [e, s];
+        if (s === e) { if (e < n - 1) e += 1; else s -= 1; }   // always two different decades
+        return [s, e];
+      }
 
+      // ================= Line chart =================
       const x = d3.scaleLinear()
         .domain([-90, 90])
         .range([0, width]);
 
       const yExtent = d3.extent(data, d => d.warming);
       const y = d3.scaleLinear()
-        .domain([
-          Math.min(0, yExtent[0]),
-          Math.max(0, yExtent[1])
-        ])
+        .domain([Math.min(0, yExtent[0]), Math.max(0, yExtent[1])])
         .nice()
         .range([height, 0]);
+
+      // Polar regions (beyond 66.5°)
+      [[66.5, 90, "Arctic Region"], [-90, -66.5, "Antarctic Region"]].forEach(([a, b, label]) => {
+        g.append("rect")
+          .attr("x", x(a)).attr("y", 0)
+          .attr("width", x(b) - x(a)).attr("height", height)
+          .attr("fill", "#dbeafe").attr("opacity", 0.45)
+          .style("pointer-events", "none");
+        g.append("text")
+          .attr("x", x((a + b) / 2)).attr("y", -12)
+          .attr("text-anchor", "middle")
+          .attr("font-size", "11px").attr("fill", "#64748b")
+          .text(label);
+      });
 
       g.append("g")
         .attr("transform", `translate(0,${height})`)
         .call(d3.axisBottom(x));
-
       g.append("g")
         .call(d3.axisLeft(y));
 
       g.append("text")
-        .attr("x", width / 2)
-        .attr("y", height + 48)
+        .attr("x", width / 2).attr("y", height + 46)
         .attr("text-anchor", "middle")
         .text("Latitude (°)");
-
       g.append("text")
         .attr("transform", "rotate(-90)")
-        .attr("x", -height / 2)
-        .attr("y", -60)
+        .attr("x", -height / 2).attr("y", -60)
         .attr("text-anchor", "middle")
         .text("Temperature Change (°C)");
 
       g.append("line")
-        .attr("x1", 0)
-        .attr("x2", width)
-        .attr("y1", y(0))
-        .attr("y2", y(0))
-        .attr("stroke", "#94a3b8")
-        .attr("stroke-dasharray", "5,5");
+        .attr("x1", 0).attr("x2", width)
+        .attr("y1", y(0)).attr("y2", y(0))
+        .attr("stroke", "#94a3b8").attr("stroke-dasharray", "5,5");
+
+      // Shaded gap between the two decades: red where the later decade is warmer, blue where cooler
+      const gapUp = d3.area()
+        .x(d => x(d.lat)).y0(d => y(d.a)).y1(d => y(Math.max(d.a, d.b)));
+      const gapDown = d3.area()
+        .x(d => x(d.lat)).y0(d => y(Math.min(d.a, d.b))).y1(d => y(d.a));
+      const gapUpPath = g.append("path").attr("fill", RED).attr("opacity", 0.18);
+      const gapDownPath = g.append("path").attr("fill", BLUE).attr("opacity", 0.22);
 
       const line = d3.line()
-        .x(d => x(d.latitude))
-        .y(d => y(d.warming));
+        .x(d => x(d.lat));
+      const pathA = g.append("path").attr("fill", "none").attr("stroke", BLUE).attr("stroke-width", 3);
+      const pathB = g.append("path").attr("fill", "none").attr("stroke", RED).attr("stroke-width", 3);
 
-        // Highlight the Arctic region (66.5°N and above)
-g.append("rect")
-  .attr("x", x(66.5))
-  .attr("y", 0)
-  .attr("width", x(90) - x(66.5))
-  .attr("height", height)
-  .attr("fill", "#dbeafe")
-  .attr("opacity", 0.45)
-  .style("pointer-events", "none");
+      // Largest-gap marker: thick line with end dots and a large label
+      const peak = g.append("g").style("pointer-events", "none");
+      const peakLine = peak.append("line").attr("stroke", "#111827").attr("stroke-width", 3.5);
+      const peakDots = [BLUE, RED].map(c => peak.append("circle")
+        .attr("r", 6).attr("fill", c).attr("stroke", "#111827").attr("stroke-width", 2));
+      const peakLabel = peak.append("text")
+        .attr("font-size", "14px").attr("font-weight", 700).attr("fill", "#111827")
+        .attr("stroke", "white").attr("stroke-width", 5).attr("paint-order", "stroke");
+      const peakLine1 = peakLabel.append("tspan");
+      const peakLine2 = peakLabel.append("tspan").attr("dy", "1.2em").attr("font-weight", 400);
 
+      // Hover: snap to the nearest latitude anywhere on the chart
+      const guide = g.append("line")
+        .attr("y1", 0).attr("y2", height)
+        .attr("stroke", "#334155").attr("stroke-dasharray", "3,3")
+        .style("opacity", 0).style("pointer-events", "none");
+      const dots = [BLUE, RED].map(c => g.append("circle")
+        .attr("r", 6).attr("fill", c).attr("stroke", "white").attr("stroke-width", 2)
+        .style("opacity", 0).style("pointer-events", "none"));
 
-g.append("text")
-  .attr("x", x(78))
-  .attr("y", -12)
-  .attr("text-anchor", "middle")
-  .attr("font-size", "11px")
-  .attr("fill", "#64748b")
-  .text("Arctic Region");
+      let focusedLat = null;
 
-
-      const seriesLayer = g.append("g");
-
-      function update() {
-        const selected = [
-          select1.property("value"),
-          select2.property("value")
-        ];
-
-
-const comparison = new Map();
-
-selected.forEach(decade => {
-  const rows = data.filter(d => d.decade === decade);
-  comparison.set(decade, new Map(
-    rows.map(d => [d.latitude, d.warming])
-  ));
-});
-
-        seriesLayer.selectAll("*").remove();
-        tooltip.style("opacity", 0);
-
-
-const firstData = new Map(
-  data.filter(d => d.decade === selected[0])
-      .map(d => [d.latitude, d.warming])
-);
-
-const differences = data
-  .filter(d => d.decade === selected[1])
-  .filter(d => firstData.has(d.latitude))
-  .map(d => ({
-    latitude: d.latitude,
-    difference: d.warming - firstData.get(d.latitude)
-  }));
-
-const largest = d3.greatest(
-  differences,
-  d => Math.abs(d.difference)
-);
-
-if (largest) {
-  const location = largest.latitude >= 0
-    ? `${largest.latitude.toFixed(1)}°N`
-    : `${Math.abs(largest.latitude).toFixed(1)}°S`;
-
-  d3.select("#keyFinding").text(
-    `Key Finding: The largest temperature difference between ${selected[0]} and ${selected[1]} occurs at ${location}, with a change of ${largest.difference >= 0 ? "+" : ""}${largest.difference.toFixed(2)}°C.`
-  );
-}
-
-
-        selected.forEach((decade, index) => {
-          const subset = data
-            .filter(d => d.decade === decade)
-            .sort((a, b) => a.latitude - b.latitude);
-
-          seriesLayer.append("path")
-            .datum(subset)
-            .attr("fill", "none")
-            .attr("stroke", colors[index])
-            .attr("stroke-width", 3)
-            .attr("d", line);
-
-          seriesLayer.selectAll(`.point-${index}`)
-            .data(subset)
-            .enter()
-            .append("circle")
-            .attr("cx", d => x(d.latitude))
-            .attr("cy", d => y(d.warming))
-            .attr("r", 6)
-            .attr("fill", colors[index])
-            .attr("opacity", 0)
-            .style("pointer-events", "all")
-            
-.on("mouseover", function(event, d) {
-  d3.select(this).attr("opacity", 1);
-
-  const first = comparison.get(selected[0]).get(d.latitude);
-  const second = comparison.get(selected[1]).get(d.latitude);
-
-  const format = value =>
-    value === undefined ? "N/A" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}°C`;
-
-  const difference =
-    first === undefined || second === undefined
-      ? "N/A"
-      : format(second - first);
-
-  tooltip
-    .style("opacity", 1)
-    .html(
-      `<strong>Latitude: ${d.latitude.toFixed(1)}°</strong><br>` +
-      `${selected[0]}: ${format(first)}<br>` +
-      `${selected[1]}: ${format(second)}<br>` +
-      `<strong>Difference: ${difference}</strong>`
-    );
-})
-
-            .on("mousemove", function(event) {
-              tooltip
-                .style("left", (event.pageX + 12) + "px")
-                .style("top", (event.pageY - 25) + "px");
-            })
-            .on("mouseout", function() {
-              d3.select(this).attr("opacity", 0);
-              tooltip.style("opacity", 0);
-            });
-        });
-
-        d3.select("#legend")
-          .selectAll(".legend-item")
-          .data(selected.map((decade, i) => ({
-            decade,
-            color: colors[i]
-          })))
-          .join("div")
-          .attr("class", "legend-item")
-          .html(d =>
-            `<span class="swatch" style="background:${d.color}"></span>` +
-            `<span>${d.decade}</span>`
+      g.append("rect")
+        .attr("width", width).attr("height", height)
+        .attr("fill", "transparent")
+        .on("pointermove", function(event) {
+          const [mx] = d3.pointer(event);
+          focusedLat = lats[d3.minIndex(lats, l => Math.abs(l - x.invert(mx)))];
+          drawFocus();
+          const a = valueAt(startDec(), focusedLat), b = valueAt(endDec(), focusedLat);
+          showTooltip(event,
+            `<strong>Latitude: ${latFmt(focusedLat)}</strong><br>` +
+            `<span style="color:#9cc3e6">${pretty(startDec())}</span>: ${signed(a)}<br>` +
+            `<span style="color:#f4a3a3">${pretty(endDec())}</span>: ${signed(b)}<br>` +
+            `<strong>Change: ${signed(b - a)}</strong>`
           );
+        })
+        .on("pointerleave", hideFocus);
+
+      // ================= Heatmap + brush (choose the time span) =================
+      const hm = {top: 50, bottom: 52};
+      const rowH = 17;
+      const hH = n * rowH;
+      hsvg.attr("viewBox", `0 0 900 ${hm.top + hH + hm.bottom}`);
+      const hg = hsvg.append("g").attr("transform", `translate(${margin.left},${hm.top})`);
+
+      const yRow = d3.scaleBand(decades, [0, hH]);
+      const rowAt = py => Math.max(0, Math.min(n - 1, Math.floor(py / rowH)));
+      const cmax = Math.ceil(d3.max(data, d => Math.abs(d.warming)) * 2) / 2;
+      const color = d3.scaleDiverging([cmax, 0, -cmax], d3.interpolateRdBu).clamp(true);
+      const cellW = x(lats[1]) - x(lats[0]);
+
+      const cells = hg.append("g").selectAll("rect")
+        .data(data)
+        .join("rect")
+        .attr("x", d => x(d.latitude) - cellW / 2)
+        .attr("width", cellW + 0.5)
+        .attr("y", d => yRow(d.decade))
+        .attr("height", rowH + 0.5)
+        .attr("fill", d => color(d.warming));
+
+      [66.5, -66.5].forEach(v => hg.append("line")
+        .attr("x1", x(v)).attr("x2", x(v)).attr("y1", 0).attr("y2", hH)
+        .attr("stroke", "#334155").attr("stroke-opacity", 0.35).attr("stroke-dasharray", "3,3")
+        .style("pointer-events", "none"));
+
+      hg.append("g")
+        .attr("transform", `translate(0,${hH})`)
+        .call(d3.axisBottom(x));
+      hg.append("text")
+        .attr("x", width / 2).attr("y", hH + 42)
+        .attr("text-anchor", "middle")
+        .text("Latitude (°)");
+      hg.append("g")
+        .call(d3.axisLeft(yRow).tickSize(0).tickPadding(6))
+        .call(a => a.select(".domain").remove())
+        .selectAll("text").attr("font-size", "11px");
+
+      // Color legend (top right) and title (top left)
+      const legW = 220;
+      const legX = d3.scaleLinear([-cmax, cmax], [width - legW, width]);
+      const grad = hsvg.append("defs").append("linearGradient").attr("id", "heat-grad");
+      d3.range(0, 1.001, 0.1).forEach(t => grad.append("stop")
+        .attr("offset", t).attr("stop-color", color(-cmax + 2 * cmax * t)));
+      hg.append("rect")
+        .attr("x", width - legW).attr("y", -30).attr("width", legW).attr("height", 9)
+        .attr("fill", "url(#heat-grad)");
+      hg.append("g")
+        .attr("transform", "translate(0,-21)")
+        .call(d3.axisBottom(legX).ticks(5).tickSize(3).tickFormat(d => (d > 0 ? "+" : "") + d))
+        .call(a => a.select(".domain").remove())
+        .selectAll("text").attr("font-size", "10px");
+      hg.append("text")
+        .attr("x", width - legW - 8).attr("y", -22)
+        .attr("text-anchor", "end").attr("font-size", "11px").attr("fill", "#475569")
+        .text("Change vs 1850–1879 (°C)");
+      hg.append("text")
+        .attr("x", 0).attr("y", -22)
+        .attr("font-size", "12px").attr("font-weight", 700).attr("fill", "#334155")
+        .text("Every decade × every latitude");
+
+      // The brush (handles mouse, touchpad and touch)
+      const brush = d3.brushY()
+        .extent([[0, 0], [width, hH]])
+        .on("brush", brushed)
+        .on("end", brushEnded);
+      const gb = hg.append("g").attr("class", "brush").call(brush);
+
+      // Start / end rows: thick colored bars at the left and right edges plus labels
+      const endMarks = [BLUE, RED].map(c => {
+        const m = hg.append("g").style("pointer-events", "none");
+        m.append("rect").attr("x", -4).attr("width", 6).attr("height", rowH).attr("fill", c);
+        m.append("rect").attr("x", width - 2).attr("width", 6).attr("height", rowH).attr("fill", c);
+        m.append("text").attr("x", width + 9).attr("y", rowH / 2)
+          .attr("dominant-baseline", "central").attr("font-size", "12px").attr("font-weight", 700).attr("fill", c);
+        return m;
+      });
+
+      const hGuide = hg.append("line")
+        .attr("y1", 0).attr("y2", hH)
+        .attr("stroke", "#111").attr("stroke-width", 1.5)
+        .style("opacity", 0).style("pointer-events", "none");
+
+      // Hover on the heatmap (the brush layer sits on top, so listen there)
+      gb.on("pointermove.tip", function(event) {
+          const [px, py] = d3.pointer(event, hg.node());
+          const dec = decades[rowAt(py)];
+          focusedLat = lats[d3.minIndex(lats, l => Math.abs(l - x.invert(px)))];
+          drawFocus();
+          showTooltip(event, `<strong>${latFmt(focusedLat)}, ${pretty(dec)}</strong><br>Warming: ${signed(valueAt(dec, focusedLat))}`);
+        })
+        .on("pointerleave.tip", hideFocus);
+
+      function brushed(event) {
+        if (!event.sourceEvent || !event.selection) return;
+        stopPlay();
+        const [y0, y1] = event.selection;
+        const next = normalize(rowAt(y0 + 1), rowAt(y1 - 1));
+        if (next[0] !== span[0] || next[1] !== span[1]) {
+          span = next;
+          update(0);
+        }
       }
 
-      select1.on("change", update);
-      select2.on("change", update);
+      function brushEnded(event) {
+        if (!event.sourceEvent) return;               // ignore our own snapping
+        stopPlay();
+        if (!event.selection) {                       // a plain click: move the nearer end to that row
+          const src = event.sourceEvent.changedTouches ? event.sourceEvent.changedTouches[0] : event.sourceEvent;
+          const r = rowAt(d3.pointer(src, hg.node())[1]);
+          span = Math.abs(r - span[0]) <= Math.abs(r - span[1])
+            ? normalize(r, span[1])
+            : normalize(span[0], r);
+          update(250);
+        }
+        snapBrush();
+      }
 
-      update();
+      function snapBrush() {
+        gb.call(brush.move, [span[0] * rowH, (span[1] + 1) * rowH]);
+      }
+
+      // "Since when?" — first decade where the Arctic warmed more than twice the global average
+      const firstDouble = decades.find(dec => {
+        const s = stats.get(dec);
+        return s.globe > 0.2 && s.arctic >= 2 * s.globe;
+      });
+      if (firstDouble) {
+        d3.select("#sinceWhen").html(
+          `<strong>Since when?</strong> In this model, the Arctic first warmed more than <strong>twice</strong> ` +
+          `the global average in <strong>${pretty(firstDouble)}</strong> (★ on the heatmap).`
+        );
+        hg.append("text")
+          .attr("x", -76).attr("y", yRow(firstDouble) + rowH / 2)
+          .attr("text-anchor", "middle").attr("dominant-baseline", "central")
+          .attr("font-size", "13px").attr("fill", "#b45309")
+          .text("★");
+      }
+
+      // ================= shared helpers =================
+      function drawFocus() {
+        if (focusedLat === null) return;
+        guide.attr("x1", x(focusedLat)).attr("x2", x(focusedLat)).style("opacity", 1);
+        [startDec(), endDec()].forEach((dec, i) => dots[i]
+          .attr("cx", x(focusedLat))
+          .attr("cy", y(valueAt(dec, focusedLat)))
+          .style("opacity", 1));
+        hGuide.attr("x1", x(focusedLat)).attr("x2", x(focusedLat)).style("opacity", 1);
+      }
+
+      function hideFocus() {
+        focusedLat = null;
+        guide.style("opacity", 0);
+        dots.forEach(dot => dot.style("opacity", 0));
+        hGuide.style("opacity", 0);
+        tooltip.style("opacity", 0);
+      }
+
+      function update(duration = 300) {
+        const A = startDec(), B = endDec();
+        const rows = lats.map(lat => ({ lat, a: valueAt(A, lat), b: valueAt(B, lat) }));
+
+        pathA.datum(rows).transition().duration(duration).attr("d", line.y(d => y(d.a)));
+        pathB.datum(rows).transition().duration(duration).attr("d", d3.line().x(d => x(d.lat)).y(d => y(d.b)));
+        gapUpPath.datum(rows).transition().duration(duration).attr("d", gapUp);
+        gapDownPath.datum(rows).transition().duration(duration).attr("d", gapDown);
+
+        // heatmap: dim rows outside the span, mark the two ends
+        cells.attr("opacity", d => {
+          const i = rowIndex.get(d.decade);
+          return i >= span[0] && i <= span[1] ? 1 : 0.25;
+        });
+        endMarks[0].attr("transform", `translate(0,${span[0] * rowH})`).select("text").text("from");
+        endMarks[1].attr("transform", `translate(0,${span[1] * rowH})`).select("text").text("to");
+        drawFocus();
+
+        d3.select("#comparing").html(
+          `Change from <span class="blue">${pretty(A)}</span> to <span class="red">${pretty(B)}</span>`
+        );
+
+        d3.select("#legend").html(
+          `<div class="legend-item"><span class="swatch" style="background:${BLUE}"></span>${pretty(A)}</div>` +
+          `<div class="legend-item"><span class="swatch" style="background:${RED}"></span>${pretty(B)}</div>` +
+          `<div class="legend-item"><span class="swatch box" style="background:${RED};opacity:.35"></span>Warmer in ${pretty(B)}</div>` +
+          `<div class="legend-item"><span class="swatch box" style="background:${BLUE};opacity:.4"></span>Cooler in ${pretty(B)}</div>`
+        );
+
+        // Key Finding: latitude with the largest change between the two decades
+        const largest = d3.greatest(rows, d => Math.abs(d.b - d.a));
+        const change = largest.b - largest.a;
+        d3.select("#keyFinding").text(
+          `Key Finding: The largest temperature difference between ${pretty(A)} and ${pretty(B)} ` +
+          `occurs at ${latFmt(largest.lat)}, with a change of ${signed(change)}.`
+        );
+
+        const px = x(largest.lat);
+        peak.transition().duration(duration).style("opacity", 1);
+        peakLine.transition().duration(duration)
+          .attr("x1", px).attr("x2", px).attr("y1", y(largest.a)).attr("y2", y(largest.b));
+        peakDots[0].transition().duration(duration).attr("cx", px).attr("cy", y(largest.a));
+        peakDots[1].transition().duration(duration).attr("cx", px).attr("cy", y(largest.b));
+        // put the label beside the marker, on the side with more room
+        const toLeft = px > width / 2;
+        const midY = Math.min(Math.max((y(largest.a) + y(largest.b)) / 2, 20), height - 30);
+        const lx = toLeft ? px - 12 : px + 12;
+        peakLabel.attr("text-anchor", toLeft ? "end" : "start").attr("y", midY);
+        peakLine1.attr("x", lx).text(`Largest change: ${latFmt(largest.lat)}`);
+        peakLine2.attr("x", lx).text(signed(change));
+
+        // Arctic vs. whole globe over the chosen span
+        const dArctic = stats.get(B).arctic - stats.get(A).arctic;
+        const dGlobe = stats.get(B).globe - stats.get(A).globe;
+        const ratio = dGlobe > 0.05 ? ` — about <strong>${(dArctic / dGlobe).toFixed(1)}×</strong> as much` : "";
+        d3.select("#arcticFinding").html(
+          `From ${pretty(A)} to ${pretty(B)}, the Arctic (66.5°N and above) changed by <strong>${signed(dArctic)}</strong>, ` +
+          `while the whole globe changed by <strong>${signed(dGlobe)}</strong>${ratio}.`
+        );
+      }
+
+      // ================= Play: move the ending decade forward =================
+      let timer = null;
+      let pausedAt = null;
+      const playBtn = d3.select("#play");
+
+      function stopPlay() {
+        if (timer) clearInterval(timer);
+        timer = null;
+        pausedAt = null;
+        playBtn.text("▶ Play");
+      }
+
+      playBtn.on("click", () => {
+        if (timer) {                                  // Pause: remember where we were
+          clearInterval(timer);
+          timer = null;
+          pausedAt = span[1];
+          playBtn.text("▶ Resume");
+          return;
+        }
+        let e = pausedAt !== null ? pausedAt : span[0];   // otherwise restart right after the start decade
+        pausedAt = null;
+        playBtn.text("❚❚ Pause");
+        const step = () => {
+          e += 1;
+          span = [span[0], e];
+          snapBrush();
+          update(500);
+          if (e >= n - 1) stopPlay();
+        };
+        step();
+        if (e < n - 1) timer = setInterval(step, 900);
+      });
+
+      update(0);
+      snapBrush();
 
     }).catch(error => {
       console.error(error);
@@ -339,12 +540,17 @@ if (largest) {
   </script>
 
 
-<section style="max-width: 850px; margin: 50px auto; padding: 0 24px; line-height: 1.8; font-family: Arial, sans-serif;">
+<section style="max-width: 850px; margin: 50px auto; padding: 0 24px; line-height: 1.8; font-family: Arial, sans-serif; text-align: left;">
+
+  <p style="background:#fff4d6; border:1px solid #f0c75e; padding:8px 12px; border-radius:6px;">
+    ⚠️ TEAM NOTE (delete before submitting): the write-up below is still the old version. It describes the dropdown menus,
+    which have been replaced by brushing a time span on the heatmap. Update it in your own words.
+  </p>
 
   <h2>Design Rationale</h2>
 
   <p>Our goal was to help users understand how warming patterns vary across latitudes and over time. We chose a line chart because latitude is a continuous variable, allowing readers to easily identify changes in warming patterns from the Southern Hemisphere to the Northern Hemisphere.</p>
-  
+
   <p>We used temperature anomalies rather than absolute temperatures to focus on warming patterns instead of natural temperature differences between regions. The original monthly temperature data were converted from Kelvin to Celsius, averaged across longitudes at each latitude, and grouped into decades. We then compared these temperatures against the 1850–1879 baseline. Using the same historical baseline allows readers to make consistent comparisons across different decades.</p>
 
   <p>We chose blue and coral red as our color palette because they are visually distinct and easy to compare against a white background. Each color consistently represents one of the two selected decades. We also included a legend to help readers identify the lines. Rather than displaying all decades simultaneously, we show only two at a time to reduce visual clutter and make comparisons clearer.</p>

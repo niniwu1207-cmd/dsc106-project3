@@ -86,29 +86,24 @@
 </head>
 <body>
   <h1>How Do Warming Patterns Vary Across Latitudes and Over Time?</h1>
-  <p class="subtitle">Temperature change relative to each latitude's 1850–1879 average (°C), from NASA-GISS's GISS-E2-1-G CMIP6 historical simulation. Temperatures are averaged across longitudes and grouped by decade.</p>
+  <p class="subtitle">Warming since each latitude's 1850–1879 average (°C), averaged over longitude and grouped by decade.</p>
 
   <p class="comparing" id="comparing"></p>
   <svg id="chart" viewBox="0 0 900 440" style="width:100%; max-width:1000px; height:auto; display:block; margin:auto;"></svg>
   <div class="legend" id="legend"></div>
-  <p id="keyFinding" style="font-size:15px; font-weight:600; margin:16px auto 4px; max-width:850px;"></p>
-  <p id="arcticFinding" style="font-size:15px; margin:0 auto; max-width:850px;"></p>
+  <p id="arcticFinding" style="font-size:15px; margin:12px auto 0; max-width:850px;"></p>
 
   <div class="panel">
-    <p><strong>Drag on the heatmap below to choose a time span.</strong> The top of the box is the starting decade
-       (<span class="blue">blue line</span>), the bottom is the ending decade (<span class="red">red line</span>).
-       Drag the box to slide it through time, or click a row to move the nearer end.</p>
-    <button id="play">▶ Play</button>
+    <p><strong>Drag on the heatmap</strong> to pick a time span: top = <span class="blue">start</span>, bottom = <span class="red">end</span>.</p>
+    <button id="play" title="Keeps the start decade and moves the end decade forward to 2014">▶ Play</button>
   </div>
   <svg id="heatmap" style="width:100%; max-width:1000px; height:auto; display:block; margin:auto;"></svg>
-  <p style="font-size:13px; color:#475569; margin:8px auto 0;"><strong>Play</strong> keeps the starting decade and moves the ending decade forward to 2014, one decade at a time.</p>
-  <p id="sinceWhen" style="font-size:15px; margin:14px auto 0; max-width:850px;"></p>
+  <p id="sinceWhen" style="font-size:14px; margin:10px auto 0; max-width:850px;"></p>
 
   <div class="tooltip"></div>
 
-  <p style="font-size:13px;color:#64748b">
-    Source: NASA-GISS CMIP6 historical simulation (GISS-E2-1-G, r1i1p1f1, monthly near-surface air temperature).
-    2010–2014 is a partial decade. Global and Arctic averages are area-weighted by cos(latitude).
+  <p style="font-size:12px;color:#64748b">
+    Data: CMIP6 NASA-GISS GISS-E2-1-G historical run (r1i1p1f1), monthly near-surface air temperature. 2010–2014 is a partial decade.
   </p>
 
   <script>
@@ -404,8 +399,7 @@
       });
       if (firstDouble) {
         d3.select("#sinceWhen").html(
-          `<strong>Since when?</strong> In this model, the Arctic first warmed more than <strong>twice</strong> ` +
-          `the global average in <strong>${pretty(firstDouble)}</strong> (★ on the heatmap).`
+          `<span style="color:#b45309">★</span> <strong>Since when?</strong> The Arctic first warmed over 2× the global average in <strong>${pretty(firstDouble)}</strong>.`
         );
         hg.append("text")
           .attr("x", -76).attr("y", yRow(firstDouble) + rowH / 2)
@@ -456,19 +450,13 @@
         );
 
         d3.select("#legend").html(
-          `<div class="legend-item"><span class="swatch" style="background:${BLUE}"></span>${pretty(A)}</div>` +
-          `<div class="legend-item"><span class="swatch" style="background:${RED}"></span>${pretty(B)}</div>` +
-          `<div class="legend-item"><span class="swatch box" style="background:${RED};opacity:.35"></span>Warmer in ${pretty(B)}</div>` +
-          `<div class="legend-item"><span class="swatch box" style="background:${BLUE};opacity:.4"></span>Cooler in ${pretty(B)}</div>`
+          `<div class="legend-item"><span class="swatch box" style="background:${RED};opacity:.35"></span>Warmer</div>` +
+          `<div class="legend-item"><span class="swatch box" style="background:${BLUE};opacity:.4"></span>Cooler</div>`
         );
 
-        // Key Finding: latitude with the largest change between the two decades
+        // Key finding: latitude with the largest change between the two decades (labelled on the chart)
         const largest = d3.greatest(rows, d => Math.abs(d.b - d.a));
         const change = largest.b - largest.a;
-        d3.select("#keyFinding").text(
-          `Key Finding: The largest temperature difference between ${pretty(A)} and ${pretty(B)} ` +
-          `occurs at ${latFmt(largest.lat)}, with a change of ${signed(change)}.`
-        );
 
         const px = x(largest.lat);
         peak.transition().duration(duration).style("opacity", 1);
@@ -487,10 +475,9 @@
         // Arctic vs. whole globe over the chosen span
         const dArctic = stats.get(B).arctic - stats.get(A).arctic;
         const dGlobe = stats.get(B).globe - stats.get(A).globe;
-        const ratio = dGlobe > 0.05 ? ` — about <strong>${(dArctic / dGlobe).toFixed(1)}×</strong> as much` : "";
+        const ratio = dGlobe > 0.05 ? ` (<strong>${(dArctic / dGlobe).toFixed(1)}×</strong>)` : "";
         d3.select("#arcticFinding").html(
-          `From ${pretty(A)} to ${pretty(B)}, the Arctic (66.5°N and above) changed by <strong>${signed(dArctic)}</strong>, ` +
-          `while the whole globe changed by <strong>${signed(dGlobe)}</strong>${ratio}.`
+          `Arctic <strong>${signed(dArctic)}</strong> vs. globe <strong>${signed(dGlobe)}</strong>${ratio}`
         );
       }
 
@@ -544,37 +531,44 @@
 
   <h2>Motivation</h2>
 
-  <p>Because global warming do not affect all regions equally, we were interested in exploring how warming patterns vary across latitudes and over time. We wanted to create a visualization that allows users to easily compare warming patterns and temperatures changes between different decades and latitudes.</p>
+  <p>Global warming does not affect all regions equally. In our exploratory analysis of CMIP6 data, the Arctic warmed about 1.6°C between 1850–1879 and 1985–2014, more than twice as much as the tropics. Comparing decades also showed that this gap was not always there. So we asked: <em>How do warming patterns vary across latitudes and over time?</em> More specifically: <em>Is the Arctic warming faster than the rest of the world, and since when?</em></p>
+
+  <h2>Data and Transformations</h2>
+
+  <p>We used one simulation: the NASA-GISS GISS-E2-1-G model, CMIP6 <em>historical</em> experiment, ensemble member r1i1p1f1, monthly near-surface air temperature from 1850 to 2014. We converted temperature from Kelvin to Celsius, averaged over all longitudes so each 2° latitude band has one value, grouped the months into decades (2010–2014 only has five years), and subtracted each latitude's own 1850–1879 average. We used temperature anomalies rather than absolute temperatures because absolute temperature is dominated by latitude (about −40°C near the South Pole versus +27°C at the equator), which hides changes of less than 2°C. Using the same historical baseline also lets readers compare decades consistently. The Arctic and global averages shown under the chart are area-weighted by cos(latitude), because a band near the pole covers much less of the Earth than a band near the equator.</p>
 
   <h2>Design Rationale</h2>
 
-  <p>Our goal was to help users understand how warming patterns vary across latitudes and over time. We transformed the climate data into a format suitable for a latitude-by-decade heatmap and line chart.
-    We used temperature anomalies rather than absolute temperatures to focus on warming patterns instead of natural temperature differences between regions. The original monthly temperature data were converted from Kelvin to Celsius, averaged across longitudes at each latitude, and grouped into decades. We then compared these temperatures against the 1850–1879 baseline. 
-    Using the same historical baseline allows readers to make consistent comparisons across different decades.</p>
+  <p><strong>Line chart.</strong> We used a line chart because latitude is a continuous variable, so readers can follow how warming changes from the Southern Hemisphere to the Northern Hemisphere. Both latitude and warming are encoded by position, the most accurate visual channel. The chart shows two decades: the start (blue) and end (red) of the chosen time span. The area between the lines is shaded red where the later decade is warmer and blue where it is cooler, so the change itself is visible, not just two separate curves. A thick marker labels the latitude with the largest change. Below the chart, one line compares how much the Arctic changed with the whole globe.</p>
 
-  <p>We created a line chart because latitude is a continuous variable, allowing readers to easily identify changes in warming patterns from the Southern Hemisphere to the Northern Hemisphere.
-    For line chart, we displaying two selected decades as separate lines and chose blue and coral red as our color palette because they are visually distinct and easy to compare against a white background, each color consistently represents one of the two selected decades. 
-    We also included a legend to help readers identify the lines. Rather than displaying all decades simultaneously, we show only two at a time to reduce visual clutter and make comparisons clearer.
-    We implemented a brushing feature that allows users to select and compare different time periods. The lines update dynamically when the selections change. Hover tooltips display the temperature anomalies for both periods at the same latitude, along with their difference. This allows readers to compare exact values without calculating them manually.
-    We also highlighted the Arctic region, beginning at approximately 66.5°N, using a subtle light-blue background. This draws attention to high-latitude warming without obscuring the data. Additionally, a dynamic key finding identifies the latitude with the largest absolute temperature difference between the selected periods. This feature helps readers quickly discover patterns that may be difficult to identify from the lines alone.</p>
+  <p><strong>Heatmap.</strong> Our data has three variables (latitude, decade and temperature anomaly), so we added a latitude-by-decade heatmap: latitude on the x-axis, decade on the y-axis and anomaly as color. It gives an overview of all 17 decades at once, which two lines cannot. We used a diverging blue–white–red scale centered at 0°C because the data has a meaningful midpoint (no change) and some latitudes and decades were cooler than the baseline. The star (★) marks the first decade in which the Arctic warmed more than twice the global average. We only count decades where global warming is above 0.2°C, so tiny early values do not create misleading ratios.</p>
 
-  <p>We also created a geographic heatmap because our dataset contains three features: latitude, time, and temperature. We set X-axis as latitude(°), Y-axis as time(decade), and color to temperature anomalies. 
-    For the heatmap, we used a diverging color scale to represent temperature anomalies. Cooler colors represent negative temperature anomalies and warmer colors represent positive anomalies, with colors near the center representing values close to zero. 
-    The color scale allows readers to distinguish between warming and cooling easily and identify which latitudes have greater temperature changes across different decades. 
-    We added hover interaction for users to move the cursor over the cell to view its latitude, age, and temperature anomalies. This provides precise values ​​that are difficult to estimate based on color alone.
-    We also added click interactions allowing users to select a cell to keep its information visible while exploring other parts of the heatmap, which can focus on particular latitude–decade combinations.</p>
+  <p><strong>Linking the two views.</strong> The heatmap uses the same latitude axis as the line chart and sits directly below it, so a column in the heatmap lines up with the same latitude on the chart. Hovering on either view marks that latitude on both.</p>
 
-  <p>We combined a heatmap and a line chart because they emphasize on different purposes. The heatmap provides an overview of temperature changes across all latitudes and decades, allowing users to see long-term warming patterns. 
-    The line chart focuses on two selected decades, making it easier to compare temperature anomalies at specific latitudes. Together, they allow users to explore both overall trends and detailed differences between time periods.
-    For both line chart and heatmap, we added a clickable play button to allow users to automatically move the ending decade forward, while keeping the starting decade fixed. This allows users to observe how warming patterns change over time without manually adjusting the brush.</p>
-  
+  <p><strong>Color.</strong> Blue always means the starting decade and coral red the ending decade, which matches the heatmap, where red means warmer. Light blue backgrounds mark the Arctic and Antarctic regions beyond 66.5°, to draw attention to the high latitudes without hiding the data.</p>
+
+  <p><strong>Latitude axis.</strong> We drew latitude in equal degrees. This makes the polar regions look larger than they really are: the area north of 66.5°N is only about 4% of the Earth's surface. We kept equal degrees because they are easier to read, and we account for area in the Arctic and global averages by weighting by cos(latitude).</p>
+
+  <h2>Interaction Design</h2>
+
+  <p><strong>Brushing.</strong> Users drag on the heatmap to choose a time span. The top of the box is the starting decade and the bottom is the ending decade. The box can be dragged to slide a span through time, and clicking a row moves the nearer end of the box. Rows outside the span are dimmed. <strong>Play</strong> keeps the starting decade and moves the ending decade forward to 2014 one decade at a time, so users can watch the gap grow. <strong>Tooltips</strong> on the line chart snap to the nearest latitude and show both decades' values and their difference. Tooltips on the heatmap show the value of that cell.</p>
+
+  <p>These interactions reveal patterns a single static chart does not. Different time spans have very different shapes. For example, from the 1950s to the 1970s, northern mid-latitudes (30–60°N) actually cooled by about 0.1–0.25°C. After the 1980s, the Arctic pulls far ahead of every other latitude.</p>
+
+  <h2>Alternatives We Considered</h2>
+  <ul>
+    <li><strong>A world map of temperature change.</strong> We tried this during exploration. It is visually striking, but our question is about latitude and time, and a map can only show one period at a time.</li>
+    <li><strong>Drawing all decades as lines.</strong> Seventeen overlapping lines were impossible to tell apart. The heatmap shows every decade without overlap.</li>
+    <li><strong>Two dropdown menus.</strong> Our first version used two dropdown menus to pick the decades. They hid the overview and made trying many comparisons slow, so we replaced them with brushing directly on the heatmap.</li>
+  </ul>
+
+  <p><strong>Limitations.</strong> This is a single run of one climate model, not observations, so other models would give somewhat different numbers. The edge latitudes near ±89° cover very little area and are noisier, so the largest change sometimes appears at the poles.</p>
+
   <h2>Development Process</h2>
 
-  <p>We started by exploring the dataset and discussing possible research questions to find out a meaningful and interesting research question, then discussed the results together and decided which direction to focus on for our final project.
-    Hsin Yu and Jay worked on building the geographic heatmap, while Yi-Ning built the line chart. Throughout the process, all three members discussed the design, reviewed the visualization, worked on write-up,and suggested changes to improve the final result.
-    In total, we spent approximately 15 person-hours developing this project. The most time-consuming parts were exploring the dataset, deciding how to present the temperature data, and implementing the interactive visualization.</p>
+  <p>We started by exploring the dataset in Google Colab and discussing possible research questions, then decided together which direction to focus on. Hsin Yu and Jay worked on building the heatmap, while Yi-Ning built the line chart. Throughout the process, all three members discussed the design, reviewed the visualization, worked on the write-up, and suggested changes to improve the final result.</p>
 
-  <p>One of our main challenges was presenting the temperature data in a way that was both clear and interactive. We worked together to refine the graph and make it easier for users to compare warming patterns across different decades. </p>
+  <p>In total, we spent approximately 15 person-hours developing this project. The most time-consuming parts were exploring the dataset, deciding how to present the comparison between decades (we went from dropdown menus to brushing on the heatmap), and getting the linked hover, brush and Play button to work together.</p>
 
 </section>
 

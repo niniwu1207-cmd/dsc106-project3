@@ -542,30 +542,37 @@
 
 <section style="max-width: 850px; margin: 50px auto; padding: 0 24px; line-height: 1.8; font-family: Arial, sans-serif; text-align: left;">
 
-  <p style="background:#fff4d6; border:1px solid #f0c75e; padding:8px 12px; border-radius:6px;">
-    ⚠️ TEAM NOTE (delete before submitting): the write-up below is still the old version. It describes the dropdown menus,
-    which have been replaced by brushing a time span on the heatmap. Update it in your own words.
-  </p>
+  <h2>Motivation</h2>
+
+  <p>Because global warming do not affect all regions equally, we were interested in exploring how warming patterns vary across latitudes and over time. We wanted to create a visualization that allows users to easily compare warming patterns and temperatures changes between different decades and latitudes.</p>
 
   <h2>Design Rationale</h2>
 
-  <p>Our goal was to help users understand how warming patterns vary across latitudes and over time. We chose a line chart because latitude is a continuous variable, allowing readers to easily identify changes in warming patterns from the Southern Hemisphere to the Northern Hemisphere.</p>
+  <p>Our goal was to help users understand how warming patterns vary across latitudes and over time. We transformed the climate data into a format suitable for a latitude-by-decade heatmap.</p>
+
+  <p>We created a line chart because latitude is a continuous variable, allowing readers to easily identify changes in warming patterns from the Southern Hemisphere to the Northern Hemisphere.</p>
 
   <p>We used temperature anomalies rather than absolute temperatures to focus on warming patterns instead of natural temperature differences between regions. The original monthly temperature data were converted from Kelvin to Celsius, averaged across longitudes at each latitude, and grouped into decades. We then compared these temperatures against the 1850–1879 baseline. Using the same historical baseline allows readers to make consistent comparisons across different decades.</p>
 
-  <p>We chose blue and coral red as our color palette because they are visually distinct and easy to compare against a white background. Each color consistently represents one of the two selected decades. We also included a legend to help readers identify the lines. Rather than displaying all decades simultaneously, we show only two at a time to reduce visual clutter and make comparisons clearer.</p>
+  <p>For line chart, we chose blue and coral red as our color palette because they are visually distinct and easy to compare against a white background. Each color consistently represents one of the two selected decades. We also included a legend to help readers identify the lines. Rather than displaying all decades simultaneously, we show only two at a time to reduce visual clutter and make comparisons clearer.</p>
 
-  <p>We implemented two dropdown menus that allow users to select and compare different decades. The lines update dynamically when the selections change. Hover tooltips display the temperature anomalies for both decades at the same latitude, along with their difference. This allows readers to compare exact values without calculating them manually.</p>
+  <p>We implemented a brushing feature that allows users to select and compare different time periods. The lines update dynamically when the selections change. Hover tooltips display the temperature anomalies for both periods at the same latitude, along with their difference. This allows readers to compare exact values without calculating them manually.</p>
 
-  <p>We also highlighted the Arctic region, beginning at approximately 66.5°N, using a subtle light-blue background. This draws attention to high-latitude warming without obscuring the data. Additionally, a dynamic key finding identifies the latitude with the largest absolute temperature difference between the selected decades. This feature helps readers quickly discover patterns that may be difficult to identify from the lines alone.</p>
+  <p>We also highlighted the Arctic region, beginning at approximately 66.5°N, using a subtle light-blue background. This draws attention to high-latitude warming without obscuring the data. Additionally, a dynamic key finding identifies the latitude with the largest absolute temperature difference between the selected periods. This feature helps readers quickly discover patterns that may be difficult to identify from the lines alone.</p>
 
-  <p>During exploratory analysis, we considered using a geographic heatmap to display temperature changes around the world. However, we selected a line chart because our research question specifically focuses on latitude and time. Combining the line chart with interactive decade comparisons makes it easier to explore how warming patterns have changed over time.</p>
+  <p>We also created a geographic heatmap because our dataset contains three features: latitude, time, and temperature. We set X-axis to latitude, Y-axis to time, and color to temperature anomalies, representing the magnitude and direction of temperature differences. This allows users to visualize the temperature changes across different latitudes and decades easily with colors.</p>
 
+  <p>For heatmap, we added hover interaction for users to move the cursor over the cell to view its latitude, age, and temperature anomalies. This provides precise values ​​that are difficult to estimate based on color alone.</p>
+
+  <p>We also added click interactions allowing users to select a cell to keep its information visible while exploring other parts of the heatmap, which can focus on particular latitude–decade combinations.</p>
+
+  <p>For both line chart and heatmap, we added a clickable play button to allow users to automatically move the ending decade forward, while keeping the starting decade fixed. This allows users to observe how warming patterns change over time without manually adjusting the brush.</p>
+  
   <h2>Development Process</h2>
 
-  <p>We started by exploring the dataset and discussing possible research questions as a team. Yi-Ning and Hsin Yu was responsible for creating the exploratory graphs, which helped us identify interesting warming patterns. We then discussed the results together and decided which direction to focus on for our final project.</p>
+  <p>We started by exploring the dataset and discussing possible research questions to find out a meaningful and interesting research question, then discussed the results together and decided which direction to focus on for our final project.</p>
 
-  <p>Hsin Yu and Jay worked on building the main visualization, while Yi-Ning contributed to implementing the interactive features. Throughout the process, all three members discussed the design, reviewed the visualization, and suggested changes to improve the final result.</p>
+  <p>Hsin Yu and Jay worked on building the geographic heatmap, while Yi-Ning built the line chart. Throughout the process, all three members discussed the design, reviewed the visualization, and suggested changes to improve the final result.</p>
 
   <p>In total, we spent approximately 15 people-hours developing this project. The most time-consuming parts were exploring the dataset, deciding how to present the temperature data, and implementing the interactive visualization.</p>
 
